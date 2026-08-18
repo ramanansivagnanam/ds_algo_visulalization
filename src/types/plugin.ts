@@ -1,5 +1,5 @@
 import type { ComponentType } from 'react';
-import type { StepEvent, PseudocodeBlock, ComplexityInfo, DSState, VisualizerProps } from './visualization';
+import type { StepEvent, PseudocodeBlock, ComplexityInfo, DSState, VisualizerProps, SceneNode } from './visualization';
 
 export interface ParameterDef {
   name: string;
@@ -20,6 +20,34 @@ export interface OperationDefinition {
   execute(state: DSState, params: Record<string, unknown>): StepEvent[];
 }
 
+export interface Operation {
+  type: string;
+  payload: Record<string, unknown>;
+}
+
+export interface VisualizationState<T = any> {
+  data: T;
+  highlights: string[];
+  annotations: Array<{ id: string; text: string; targetId: string | null }>;
+  metadata: Record<string, unknown>;
+}
+
+export interface PluginContext<T = any> {
+  state: VisualizationState<T>;
+  operation: Operation;
+}
+
+export interface Plugin<T = any> {
+  id: string;
+  name: string;
+  description: string;
+  version: string;
+  getInitialState(): VisualizationState<T>;
+  validateOperation(operation: Operation): boolean;
+  execute(ctx: PluginContext<T>): VisualizationState<T>;
+  getDescription(): string;
+}
+
 export interface DataStructurePlugin {
   id: string;
   name: string;
@@ -33,5 +61,3 @@ export interface DataStructurePlugin {
   complexity: Record<string, ComplexityInfo>;
   layout?(state: DSState): SceneNode[];
 }
-
-import type { SceneNode } from './visualization';
