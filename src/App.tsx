@@ -6,9 +6,9 @@ import { PlaybackControls } from './ui/components/PlaybackControls';
 import { OperationPanel } from './ui/components/OperationPanel';
 import { visualizationEngine } from './engine/VisualizationEngine';
 import { arrayPlugin } from './plugins/array';
-import { LinkedListPlugin } from './plugins/linkedlist/LinkedListPlugin';
-import { StackPlugin } from './plugins/stack/StackPlugin';
-import { QueuePlugin } from './plugins/queue/QueuePlugin';
+import { linkedListPlugin } from './plugins/linkedlist/LinkedListPlugin';
+import { stackPlugin } from './plugins/stack/StackPlugin';
+import { queuePlugin } from './plugins/queue/QueuePlugin';
 import { lessons } from './data/lessons/array-lessons';
 import type { DSState, StepEvent } from './types/visualization';
 import type { DataStructurePlugin } from './types/plugin';
@@ -27,13 +27,13 @@ function App() {
     let plugin: DataStructurePlugin;
     switch (selectedPlugin) {
       case 'linkedlist':
-        plugin = new LinkedListPlugin() as any;
+        plugin = linkedListPlugin;
         break;
       case 'stack':
-        plugin = new StackPlugin() as any;
+        plugin = stackPlugin;
         break;
       case 'queue':
-        plugin = new QueuePlugin() as any;
+        plugin = queuePlugin;
         break;
       default:
         plugin = arrayPlugin;

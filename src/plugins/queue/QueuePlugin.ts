@@ -1,118 +1,100 @@
-import { Plugin, PluginContext, Operation, VisualizationState } from '../../types/plugin';
+import { DataStructurePlugin, DSState, OperationDefinition, StepEvent } from '../../types';
 
-export interface QueueData {
-  elements: number[];
-  front: number;
-  rear: number;
-  maxSize: number;
+export interface QueueData { elements: number[]; front: number; rear: number; maxSize: number; }
+
+let stepId = 0;
+function nextId(): string { return `step-${++stepId}`; }
+function makeStep(operation: string, snapshot: DSState, highlight: string[], explanation: string, pseudocodeLine: number | null = null, variables: Record<string, unknown> = {}): StepEvent {
+  return { id: nextId(), operation, snapshot, highlight, explanation, pseudocodeLine, variables };
 }
 
-export class QueuePlugin implements Plugin<QueueData> {
-  id = 'queue';
-  name = 'Queue';
-  description = 'FIFO queue visualization';
-  version = '1.0.0';
+const createInitialState = (): DSState => ({
+  type: 'queue',
+  queue: { elements: [], front: 0, rear: -1, maxSize: 10 },
+  highlights: [],
+  annotations: [],
+  metadata: {},
+});
 
-  getInitialState(): VisualizationState<QueueData> {
-    return {
-      data: { elements: [], front: 0, rear: -1, maxSize: 10 },
-      highlights: [],
-      annotations: [],
-      metadata: {},
-    };
-  }
-
-  validateOperation(operation: Operation): boolean {
-    const validTypes = ['create', 'enqueue', 'dequeue', 'front', 'isEmpty', 'isFull'];
-    if (!validTypes.includes(operation.type)) return false;
-
-    switch (operation.type) {
-      case 'enqueue':
-        return typeof operation.payload.value === 'number';
-      default:
-        return true;
-    }
-  }
-
-  execute(ctx: PluginContext<QueueData>): VisualizationState<QueueData> {
-    const { state, operation } = ctx;
-    const data = state.data || this.getInitialState().data;
-    const newData: QueueData = JSON.parse(JSON.stringify(data));
-
-    switch (operation.type) {
-      case 'create': {
-        const maxSize = operation.payload.maxSize as number | undefined;
-        newData.maxSize = maxSize || 10;
-        newData.elements = [];
-        newData.front = 0;
-        newData.rear = -1;
-        break;
-      }
-
-      case 'enqueue': {
-        if (newData.elements.length >= newData.maxSize) {
-          throw new Error('Queue overflow');
-        }
-        newData.elements.push(operation.payload.value as number);
-        newData.rear = newData.elements.length - 1;
-        break;
-      }
-
-      case 'dequeue': {
-        if (newData.elements.length === 0) {
-          throw new Error('Queue underflow');
-        }
-        newData.elements.shift();
-        newData.rear = newData.elements.length - 1;
-        if (newData.elements.length === 0) {
-          newData.front = 0;
-          newData.rear = -1;
-        }
-        break;
-      }
-
-      case 'front': {
-        if (newData.elements.length === 0) {
-          return {
-            ...state,
-            data: newData,
-            annotations: [{ id: 'front_empty', text: 'Queue is empty', targetId: null }],
-          };
-        }
-        return {
+const operations: OperationDefinition[] = [
+  {
+    id: 'enqueue',
+    label: 'Enqueue',
+    description: 'Add an element to the rear of the queue',
+    parameters: [{ name: 'value', label: 'Value', type: 'number', required: true, placeholder: 'e.g. 42' }],
+    execute: (state, params) => {
+      const data = state.queue!;
+      if (data.elements.length >= data.maxSize) throw new Error('Queue overflow');
+      const newElements = [...data.elements, params.value as number];
+      const newState: DSState = {
+        ...state,
+        queue: { ...data, elements: newElements, rear: newElements.length - 1 },
+        highlights: [`element_${newElements.length - 1}`],
+        annotations: [],
+        metadata: {},
+      };
+      return [makeStep('enqueue', newState, [`element_${newElements.length - 1}`], `Enqueued ${params.value}`)];
+    },
+  },
+  {
+    id: 'dequeue',
+    label: 'Dequeue',
+    description: 'Remove the front element from the queue',
+    parameters: [],
+    execute: (state) => {
+      const data = state.queue!;
+      if (data.elements.length === 0) throw new Error('Queue underflow');
+      const newElements = data.elements.slice(1);
+      const newState: DSState = {
+        ...state,
+        queue: { ...data, elements: newElements, front: 0, rear: newElements.length > 0 ? newElements.length - 1 : -1 },
+        highlights: newElements.length > 0 ? ['element_0'] : [],
+        annotations: [],
+        metadata: {},
+      };
+      return [makeStep('dequeue', newState, newElements.length > 0 ? ['element_0'] : [], 'Dequeued front element')];
+    },
+  },
+  {
+    id: 'peek',
+    label: 'Peek Front',
+    description: 'View the front element without removing it',
+    parameters: [],
+    execute: (state) => {
+      const data = state.queue!;
+      if (data.elements.length === 0) {
+        const newState: DSState = {
           ...state,
-          data: newData,
-          highlights: ['front_element'],
-          annotations: [{ id: 'front_result', text: `Front element: ${newData.elements[0]}`, targetId: 'front_element' }],
+          queue: data,
+          highlights: [],
+          annotations: [{ id: 'front_empty', text: 'Queue is empty', targetId: null }],
+          metadata: {},
         };
+        return [makeStep('peek', newState, [], 'Queue is empty')];
       }
+      const newState: DSState = {
+        ...state,
+        queue: data,
+        highlights: ['element_0'],
+        annotations: [{ id: 'front_result', text: `Front: ${data.elements[0]}`, targetId: 'element_0' }],
+        metadata: {},
+      };
+      return [makeStep('peek', newState, ['element_0'], `Front element: ${data.elements[0]}`)];
+    },
+  },
+];
 
-      case 'isEmpty': {
-        const isEmpty = newData.elements.length === 0;
-        return {
-          ...state,
-          data: newData,
-          annotations: [{ id: 'is_empty', text: `Queue is ${isEmpty ? 'empty' : 'not empty'}`, targetId: null }],
-        };
-      }
+function QueueVisualizer() { return null; }
 
-      case 'isFull': {
-        const isFull = newData.elements.length >= newData.maxSize;
-        return {
-          ...state,
-          data: newData,
-          annotations: [{ id: 'is_full', text: `Queue is ${isFull ? 'full' : 'not full'}`, targetId: null }],
-        };
-      }
-
-      default:
-        throw new Error(`Unknown operation: ${operation.type}`);
-    }
-
-    return { ...state, data: newData };
-  }
-
-  getDescription(): string {
-    return this.description;
-  }
-}
+export const queuePlugin: DataStructurePlugin = {
+  id: 'queue',
+  name: 'Queue',
+  category: 'linear',
+  icon: '📋',
+  description: 'A FIFO (First In First Out) data structure.',
+  createInitialState,
+  operations,
+  Visualizer: QueueVisualizer,
+  pseudocode: {},
+  complexity: {},
+};

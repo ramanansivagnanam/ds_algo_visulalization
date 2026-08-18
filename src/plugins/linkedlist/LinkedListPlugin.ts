@@ -1,230 +1,206 @@
-import { Plugin, PluginContext, Operation, VisualizationState } from '../../types/plugin';
+import { DataStructurePlugin, DSState, OperationDefinition, StepEvent } from '../../types';
 
 export interface LinkedListNode {
   value: number;
-  next: string | null; // node ID or null
+  next: string | null;
 }
 
 export interface LinkedListData {
-  head: string | null; // node ID
+  head: string | null;
   nodes: Record<string, LinkedListNode>;
   length: number;
 }
 
 const createNodeId = () => `node_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
 
-export class LinkedListPlugin implements Plugin<LinkedListData> {
-  id = 'linkedlist';
-  name = 'Linked List';
-  description = 'Singly linked list visualization';
-  version = '1.0.0';
+let stepId = 0;
+function nextId(): string { return `step-${++stepId}`; }
 
-  getInitialState(): VisualizationState<LinkedListData> {
-    return {
-      data: { head: null, nodes: {}, length: 0 },
-      highlights: [],
-      annotations: [],
-      metadata: {},
-    };
-  }
-
-  validateOperation(operation: Operation): boolean {
-    const validTypes = ['create', 'insertHead', 'insertTail', 'insertAt', 'deleteHead', 'deleteTail', 'deleteAt', 'search', 'reverse'];
-    if (!validTypes.includes(operation.type)) return false;
-
-    switch (operation.type) {
-      case 'create':
-        return true;
-      case 'insertHead':
-      case 'insertTail':
-        return typeof operation.payload.value === 'number';
-      case 'insertAt':
-        return typeof operation.payload.index === 'number' && typeof operation.payload.value === 'number';
-      case 'deleteAt':
-        return typeof operation.payload.index === 'number';
-      case 'search':
-        return typeof operation.payload.value === 'number';
-      default:
-        return true;
-    }
-  }
-
-  execute(ctx: PluginContext<LinkedListData>): VisualizationState<LinkedListData> {
-    const { state, operation } = ctx;
-    const data = state.data || this.getInitialState().data;
-    const newData: LinkedListData = JSON.parse(JSON.stringify(data));
-
-    switch (operation.type) {
-      case 'create': {
-        const initialValues = operation.payload.initialValues as number[] | undefined;
-        if (initialValues && initialValues.length > 0) {
-          let prevId: string | null = null;
-          for (const val of initialValues) {
-            const nodeId = createNodeId();
-            newData.nodes[nodeId] = { value: val, next: null };
-            if (prevId) {
-              newData.nodes[prevId].next = nodeId;
-            } else {
-              newData.head = nodeId;
-            }
-            prevId = nodeId;
-          }
-          newData.length = initialValues.length;
-        } else {
-          newData.head = null;
-          newData.nodes = {};
-          newData.length = 0;
-        }
-        break;
-      }
-
-      case 'insertHead': {
-        const nodeId = createNodeId();
-        newData.nodes[nodeId] = { value: operation.payload.value as number, next: newData.head };
-        newData.head = nodeId;
-        newData.length++;
-        break;
-      }
-
-      case 'insertTail': {
-        const nodeId = createNodeId();
-        newData.nodes[nodeId] = { value: operation.payload.value as number, next: null };
-        
-        if (!newData.head) {
-          newData.head = nodeId;
-        } else {
-          let currentId: string | null = newData.head;
-          while (currentId && newData.nodes[currentId].next) {
-            currentId = newData.nodes[currentId].next;
-          }
-          if (currentId) {
-            newData.nodes[currentId].next = nodeId;
-          }
-        }
-        newData.length++;
-        break;
-      }
-
-      case 'insertAt': {
-        const { index, value } = operation.payload as { index: number; value: number };
-        if (index < 0 || index > newData.length) {
-          throw new Error(`Index ${index} out of bounds`);
-        }
-        if (index === 0) {
-          return this.execute({ ...ctx, operation: { type: 'insertHead', payload: { value } } });
-        }
-        if (index === newData.length) {
-          return this.execute({ ...ctx, operation: { type: 'insertTail', payload: { value } } });
-        }
-
-        let currentId = newData.head;
-        for (let i = 0; i < index - 1 && currentId; i++) {
-          currentId = newData.nodes[currentId].next;
-        }
-
-        const nodeId = createNodeId();
-        newData.nodes[nodeId] = { value, next: newData.nodes[currentId!].next };
-        newData.nodes[currentId!].next = nodeId;
-        newData.length++;
-        break;
-      }
-
-      case 'deleteHead': {
-        if (!newData.head) {
-          throw new Error('List is empty');
-        }
-        const oldHead = newData.head;
-        newData.head = newData.nodes[oldHead].next;
-        delete newData.nodes[oldHead];
-        newData.length--;
-        break;
-      }
-
-      case 'deleteTail': {
-        if (!newData.head) {
-          throw new Error('List is empty');
-        }
-        if (!newData.nodes[newData.head].next) {
-          return this.execute({ ...ctx, operation: { type: 'deleteHead', payload: {} } });
-        }
-
-        let currentId = newData.head;
-        while (newData.nodes[newData.nodes[currentId].next!]?.next) {
-          currentId = newData.nodes[currentId].next!;
-        }
-        const tailId = newData.nodes[currentId].next!;
-        delete newData.nodes[tailId];
-        newData.nodes[currentId].next = null;
-        newData.length--;
-        break;
-      }
-
-      case 'deleteAt': {
-        const { index } = operation.payload as { index: number };
-        if (index < 0 || index >= newData.length) {
-          throw new Error(`Index ${index} out of bounds`);
-        }
-        if (index === 0) {
-          return this.execute({ ...ctx, operation: { type: 'deleteHead', payload: {} } });
-        }
-
-        let currentId = newData.head;
-        for (let i = 0; i < index - 1 && currentId; i++) {
-          currentId = newData.nodes[currentId].next;
-        }
-
-        const toDeleteId = newData.nodes[currentId!].next!;
-        newData.nodes[currentId!].next = newData.nodes[toDeleteId].next;
-        delete newData.nodes[toDeleteId];
-        newData.length--;
-        break;
-      }
-
-      case 'search': {
-        const { value } = operation.payload;
-        let currentId = newData.head;
-        let index = 0;
-        while (currentId) {
-          if (newData.nodes[currentId].value === value) {
-            return {
-              ...state,
-              data: newData,
-              highlights: [currentId],
-              annotations: [{ id: `found_${index}`, text: `Found at index ${index}`, targetId: currentId }],
-            };
-          }
-          currentId = newData.nodes[currentId].next;
-          index++;
-        }
-        return {
-          ...state,
-          data: newData,
-          annotations: [{ id: 'not_found', text: `Value ${value} not found`, targetId: null }],
-        };
-      }
-
-      case 'reverse': {
-        let prevId: string | null = null;
-        let currentId = newData.head;
-        
-        while (currentId) {
-          const nextId = newData.nodes[currentId].next;
-          newData.nodes[currentId].next = prevId;
-          prevId = currentId;
-          currentId = nextId;
-        }
-        newData.head = prevId;
-        break;
-      }
-
-      default:
-        throw new Error(`Unknown operation: ${operation.type}`);
-    }
-
-    return { ...state, data: newData };
-  }
-
-  getDescription(): string {
-    return this.description;
-  }
+function makeStep(
+  operation: string,
+  snapshot: DSState,
+  highlight: string[],
+  explanation: string,
+  pseudocodeLine: number | null = null,
+  variables: Record<string, unknown> = {}
+): StepEvent {
+  return { id: nextId(), operation, snapshot, highlight, explanation, pseudocodeLine, variables };
 }
+
+const createInitialState = (): DSState => ({
+  type: 'linkedlist',
+  linkedList: { head: null, nodes: {}, length: 0 },
+  highlights: [],
+  annotations: [],
+  metadata: {},
+});
+
+const operations: OperationDefinition[] = [
+  {
+    id: 'insertHead',
+    label: 'Insert at Head',
+    description: 'Insert a new node at the beginning of the list',
+    parameters: [{ name: 'value', label: 'Value', type: 'number', required: true, placeholder: 'e.g. 42' }],
+    execute: (state, params) => {
+      const data = state.linkedList!;
+      const nodeId = createNodeId();
+      const newNode: LinkedListNode = { value: params.value as number, next: data.head };
+      const newNodes = { ...data.nodes, [nodeId]: newNode };
+      const newState: DSState = {
+        ...state,
+        linkedList: { head: nodeId, nodes: newNodes, length: data.length + 1 },
+        highlights: [nodeId],
+        annotations: [],
+        metadata: {},
+      };
+      return [makeStep('insertHead', newState, [nodeId], `Inserted ${params.value} at head`)];
+    },
+  },
+  {
+    id: 'insertTail',
+    label: 'Insert at Tail',
+    description: 'Insert a new node at the end of the list',
+    parameters: [{ name: 'value', label: 'Value', type: 'number', required: true, placeholder: 'e.g. 42' }],
+    execute: (state, params) => {
+      const data = state.linkedList!;
+      const nodeId = createNodeId();
+      const newNode: LinkedListNode = { value: params.value as number, next: null };
+      
+      if (!data.head) {
+        const newState: DSState = {
+          ...state,
+          linkedList: { head: nodeId, nodes: { [nodeId]: newNode }, length: 1 },
+          highlights: [nodeId],
+          annotations: [],
+          metadata: {},
+        };
+        return [makeStep('insertTail', newState, [nodeId], `Inserted ${params.value} at tail (empty list)`)];
+      }
+      
+      let currentId = data.head;
+      while (data.nodes[currentId].next) {
+        currentId = data.nodes[currentId].next!;
+      }
+      
+      const newNodes = { ...data.nodes, [nodeId]: newNode };
+      newNodes[currentId] = { ...newNodes[currentId], next: nodeId };
+      
+      const newState: DSState = {
+        ...state,
+        linkedList: { head: data.head, nodes: newNodes, length: data.length + 1 },
+        highlights: [currentId, nodeId],
+        annotations: [],
+        metadata: {},
+      };
+      return [makeStep('insertTail', newState, [currentId, nodeId], `Inserted ${params.value} at tail`)];
+    },
+  },
+  {
+    id: 'deleteHead',
+    label: 'Delete Head',
+    description: 'Remove the first node from the list',
+    parameters: [],
+    execute: (state) => {
+      const data = state.linkedList!;
+      if (!data.head) {
+        throw new Error('List is empty');
+      }
+      
+      const oldHead = data.head;
+      const newHead = data.nodes[oldHead].next;
+      const newNodes = { ...data.nodes };
+      delete newNodes[oldHead];
+      
+      const newState: DSState = {
+        ...state,
+        linkedList: { head: newHead, nodes: newNodes, length: Math.max(0, data.length - 1) },
+        highlights: newHead ? [newHead] : [],
+        annotations: [],
+        metadata: {},
+      };
+      return [makeStep('deleteHead', newState, newHead ? [newHead] : [], 'Deleted head node')];
+    },
+  },
+  {
+    id: 'search',
+    label: 'Search',
+    description: 'Find a node with the given value',
+    parameters: [{ name: 'value', label: 'Value', type: 'number', required: true, placeholder: 'e.g. 42' }],
+    execute: (state, params) => {
+      const data = state.linkedList!;
+      let currentId = data.head;
+      let index = 0;
+      
+      while (currentId) {
+        if (data.nodes[currentId].value === params.value) {
+          const newState: DSState = {
+            ...state,
+            linkedList: data,
+            highlights: [currentId],
+            annotations: [{ id: 'found', text: `Found at position ${index}`, targetId: currentId }],
+            metadata: {},
+          };
+          return [makeStep('search', newState, [currentId], `Found ${params.value} at position ${index}`)];
+        }
+        currentId = data.nodes[currentId].next!;
+        index++;
+      }
+      
+      const newState: DSState = {
+        ...state,
+        linkedList: data,
+        highlights: [],
+        annotations: [{ id: 'not_found', text: `Value ${params.value} not found`, targetId: null }],
+        metadata: {},
+      };
+      return [makeStep('search', newState, [], `Value ${params.value} not found`)];
+    },
+  },
+  {
+    id: 'reverse',
+    label: 'Reverse',
+    description: 'Reverse the entire linked list',
+    parameters: [],
+    execute: (state) => {
+      const data = state.linkedList!;
+      if (!data.head) {
+        return [makeStep('reverse', state, [], 'List is empty, nothing to reverse')];
+      }
+      
+      const newNodes = { ...data.nodes };
+      let prevId: string | null = null;
+      let currentId = data.head;
+      
+      while (currentId) {
+        const nextId = newNodes[currentId].next;
+        newNodes[currentId] = { ...newNodes[currentId], next: prevId };
+        prevId = currentId;
+        currentId = nextId!;
+      }
+      
+      const newState: DSState = {
+        ...state,
+        linkedList: { head: prevId, nodes: newNodes, length: data.length },
+        highlights: prevId ? [prevId] : [],
+        annotations: [],
+        metadata: {},
+      };
+      return [makeStep('reverse', newState, prevId ? [prevId] : [], 'Reversed the linked list')];
+    },
+  },
+];
+
+function LinkedListVisualizer() { return null; }
+
+export const linkedListPlugin: DataStructurePlugin = {
+  id: 'linkedlist',
+  name: 'Linked List',
+  category: 'linear',
+  icon: '🔗',
+  description: 'A linear data structure where elements are stored in nodes connected by pointers.',
+  createInitialState,
+  operations,
+  Visualizer: LinkedListVisualizer,
+  pseudocode: {},
+  complexity: {},
+};
