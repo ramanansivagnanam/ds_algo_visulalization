@@ -1,6 +1,7 @@
-export type PlaybackStatus = 'idle' | 'playing' | 'paused';
+export type PlaybackStatus = 'idle' | 'playing' | 'paused' | 'stopped';
+export type PlaybackState = PlaybackStatus;
 
-export interface PlaybackState {
+export interface PlaybackInfo {
   status: PlaybackStatus;
   speed: number;
   currentStep: number;
