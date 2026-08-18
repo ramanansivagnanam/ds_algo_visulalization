@@ -1,117 +1,101 @@
-import { Plugin, PluginContext, Operation, VisualizationState } from '../../types/plugin';
+import { DataStructurePlugin, DSState, OperationDefinition, StepEvent } from '../../types';
 
-export interface StackNode {
-  value: number;
+export interface StackNode { value: number; }
+export interface StackData { elements: StackNode[]; top: number; maxSize: number; }
+
+let stepId = 0;
+function nextId(): string { return `step-${++stepId}`; }
+function makeStep(operation: string, snapshot: DSState, highlight: string[], explanation: string, pseudocodeLine: number | null = null, variables: Record<string, unknown> = {}): StepEvent {
+  return { id: nextId(), operation, snapshot, highlight, explanation, pseudocodeLine, variables };
 }
 
-export interface StackData {
-  elements: StackNode[];
-  top: number;
-  maxSize: number;
-}
+const createInitialState = (): DSState => ({
+  type: 'stack',
+  stack: { elements: [], top: -1, maxSize: 10 },
+  highlights: [],
+  annotations: [],
+  metadata: {},
+});
 
-export class StackPlugin implements Plugin<StackData> {
-  id = 'stack';
-  name = 'Stack';
-  description = 'LIFO stack visualization';
-  version = '1.0.0';
-
-  getInitialState(): VisualizationState<StackData> {
-    return {
-      data: { elements: [], top: -1, maxSize: 10 },
-      highlights: [],
-      annotations: [],
-      metadata: {},
-    };
-  }
-
-  validateOperation(operation: Operation): boolean {
-    const validTypes = ['create', 'push', 'pop', 'peek', 'isEmpty', 'isFull'];
-    if (!validTypes.includes(operation.type)) return false;
-
-    switch (operation.type) {
-      case 'push':
-        return typeof operation.payload.value === 'number';
-      default:
-        return true;
-    }
-  }
-
-  execute(ctx: PluginContext<StackData>): VisualizationState<StackData> {
-    const { state, operation } = ctx;
-    const data = state.data || this.getInitialState().data;
-    const newData: StackData = JSON.parse(JSON.stringify(data));
-
-    switch (operation.type) {
-      case 'create': {
-        const maxSize = operation.payload.maxSize as number | undefined;
-        newData.maxSize = maxSize || 10;
-        newData.elements = [];
-        newData.top = -1;
-        break;
-      }
-
-      case 'push': {
-        if (newData.elements.length >= newData.maxSize) {
-          throw new Error('Stack overflow');
-        }
-        newData.elements.push({ value: operation.payload.value as number });
-        newData.top = newData.elements.length - 1;
-        break;
-      }
-
-      case 'pop': {
-        if (newData.elements.length === 0) {
-          throw new Error('Stack underflow');
-        }
-        newData.elements.pop();
-        newData.top = newData.elements.length - 1;
-        break;
-      }
-
-      case 'peek': {
-        if (newData.elements.length === 0) {
-          return {
-            ...state,
-            data: newData,
-            annotations: [{ id: 'peek_empty', text: 'Stack is empty', targetId: null }],
-          };
-        }
-        const topValue = newData.elements[newData.top].value;
-        return {
+const operations: OperationDefinition[] = [
+  {
+    id: 'push',
+    label: 'Push',
+    description: 'Add an element to the top of the stack',
+    parameters: [{ name: 'value', label: 'Value', type: 'number', required: true, placeholder: 'e.g. 42' }],
+    execute: (state, params) => {
+      const data = state.stack!;
+      if (data.elements.length >= data.maxSize) throw new Error('Stack overflow');
+      const newElements = [...data.elements, { value: params.value as number }];
+      const newState: DSState = {
+        ...state,
+        stack: { ...data, elements: newElements, top: newElements.length - 1 },
+        highlights: [`element_${newElements.length - 1}`],
+        annotations: [],
+        metadata: {},
+      };
+      return [makeStep('push', newState, [`element_${newElements.length - 1}`], `Pushed ${params.value} to stack`)];
+    },
+  },
+  {
+    id: 'pop',
+    label: 'Pop',
+    description: 'Remove the top element from the stack',
+    parameters: [],
+    execute: (state) => {
+      const data = state.stack!;
+      if (data.elements.length === 0) throw new Error('Stack underflow');
+      const newElements = data.elements.slice(0, -1);
+      const newState: DSState = {
+        ...state,
+        stack: { ...data, elements: newElements, top: newElements.length - 1 },
+        highlights: newElements.length > 0 ? [`element_${newElements.length - 1}`] : [],
+        annotations: [],
+        metadata: {},
+      };
+      return [makeStep('pop', newState, newElements.length > 0 ? [`element_${newElements.length - 1}`] : [], 'Popped from stack')];
+    },
+  },
+  {
+    id: 'peek',
+    label: 'Peek',
+    description: 'View the top element without removing it',
+    parameters: [],
+    execute: (state) => {
+      const data = state.stack!;
+      if (data.elements.length === 0) {
+        const newState: DSState = {
           ...state,
-          data: newData,
-          highlights: [`element_${newData.top}`],
-          annotations: [{ id: 'peek_result', text: `Top element: ${topValue}`, targetId: `element_${newData.top}` }],
+          stack: data,
+          highlights: [],
+          annotations: [{ id: 'peek_empty', text: 'Stack is empty', targetId: null }],
+          metadata: {},
         };
+        return [makeStep('peek', newState, [], 'Stack is empty')];
       }
+      const newState: DSState = {
+        ...state,
+        stack: data,
+        highlights: [`element_${data.top}`],
+        annotations: [{ id: 'peek_result', text: `Top: ${data.elements[data.top].value}`, targetId: `element_${data.top}` }],
+        metadata: {},
+      };
+      return [makeStep('peek', newState, [`element_${data.top}`], `Top element: ${data.elements[data.top].value}`)];
+    },
+  },
+];
 
-      case 'isEmpty': {
-        const isEmpty = newData.elements.length === 0;
-        return {
-          ...state,
-          data: newData,
-          annotations: [{ id: 'is_empty', text: `Stack is ${isEmpty ? 'empty' : 'not empty'}`, targetId: null }],
-        };
-      }
+function StackVisualizer() { return null; }
 
-      case 'isFull': {
-        const isFull = newData.elements.length >= newData.maxSize;
-        return {
-          ...state,
-          data: newData,
-          annotations: [{ id: 'is_full', text: `Stack is ${isFull ? 'full' : 'not full'}`, targetId: null }],
-        };
-      }
-
-      default:
-        throw new Error(`Unknown operation: ${operation.type}`);
-    }
-
-    return { ...state, data: newData };
-  }
-
-  getDescription(): string {
-    return this.description;
-  }
-}
+export const stackPlugin: DataStructurePlugin = {
+  id: 'stack',
+  name: 'Stack',
+  category: 'linear',
+  icon: '📚',
+  description: 'A LIFO (Last In First Out) data structure.',
+  createInitialState,
+  operations,
+  Visualizer: StackVisualizer,
+  pseudocode: {},
+  complexity: {},
+};
