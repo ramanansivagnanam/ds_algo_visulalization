@@ -1,4 +1,5 @@
 import { DataStructurePlugin, DSState, OperationDefinition, StepEvent } from '../../types';
+import { StackVisualizer } from './visualizer';
 
 export interface StackNode { value: number; }
 export interface StackData { elements: StackNode[]; top: number; maxSize: number; }
@@ -84,8 +85,6 @@ const operations: OperationDefinition[] = [
     },
   },
 ];
-
-function StackVisualizer() { return null; }
 
 export const stackPlugin: DataStructurePlugin = {
   id: 'stack',

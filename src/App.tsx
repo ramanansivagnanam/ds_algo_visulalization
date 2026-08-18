@@ -10,8 +10,12 @@ import { linkedListPlugin } from './plugins/linkedlist/LinkedListPlugin';
 import { stackPlugin } from './plugins/stack/StackPlugin';
 import { queuePlugin } from './plugins/queue/QueuePlugin';
 import { lessons } from './data/lessons/array-lessons';
-import type { DSState, StepEvent } from './types/visualization';
+import type { DSState, StepEvent, VisualizerProps } from './types/visualization';
 import type { DataStructurePlugin } from './types/plugin';
+import { ArrayVisualizer } from './plugins/array/visualizer';
+import { LinkedListVisualizer } from './plugins/linkedlist/visualizer';
+import { StackVisualizer } from './plugins/stack/visualizer';
+import { QueueVisualizer } from './plugins/queue/visualizer';
 
 function App() {
   const [selectedPlugin, setSelectedPlugin] = useState<string>('array');
@@ -164,75 +168,42 @@ function App() {
 
           {/* Visualization Canvas */}
           <div className="flex-1 bg-bg-secondary rounded-lg border border-border-primary p-8 overflow-auto">
-            <div className="w-full h-full flex items-center justify-center">
-              {/* Render based on plugin type */}
-              {selectedPlugin === 'array' && currentState?.array && (
-                <div className="flex gap-2 flex-wrap">
-                  {(currentState.array as number[]).map((value, index) => (
-                    <div
-                      key={index}
-                      className="w-16 h-16 flex items-center justify-center rounded-lg text-xl font-bold bg-bg-primary text-text-primary border-2 border-border-primary relative"
-                    >
-                      {value}
-                      <div className="absolute -bottom-6 text-xs text-text-secondary">
-                        {index}
-                      </div>
-                    </div>
-                  ))}
-                  {(currentState.array as number[])?.length === 0 && (
-                    <p className="text-text-secondary">Empty array</p>
-                  )}
-                </div>
+            <div className="w-full h-full">
+              {/* Render based on plugin type using proper visualizers */}
+              {selectedPlugin === 'array' && currentState && (
+                <ArrayVisualizer 
+                  state={currentState} 
+                  highlight={currentState.highlights || []} 
+                  width={800} 
+                  height={400} 
+                />
               )}
               
-              {selectedPlugin === 'linkedlist' && currentState?.nodes && (
-                <div className="flex items-center gap-2">
-                  {(currentState.nodes as any[]).map((node: any, index: number) => (
-                    <div key={index} className="flex items-center">
-                      <div className="w-16 h-16 flex items-center justify-center rounded-lg bg-bg-primary border-2 border-border-primary text-text-primary font-bold">
-                        {node.value}
-                      </div>
-                      {index < (currentState.nodes as any[]).length - 1 && (
-                        <div className="w-8 h-0.5 bg-border-primary mx-2" />
-                      )}
-                    </div>
-                  ))}
-                  {(currentState.nodes as any[])?.length === 0 && (
-                    <p className="text-text-secondary">Empty linked list</p>
-                  )}
-                </div>
+              {selectedPlugin === 'linkedlist' && currentState && (
+                <LinkedListVisualizer 
+                  state={currentState} 
+                  highlight={currentState.highlights || []} 
+                  width={800} 
+                  height={400} 
+                />
               )}
 
-              {selectedPlugin === 'stack' && currentState?.elements && (
-                <div className="flex flex-col-reverse gap-2">
-                  {(currentState.elements as any[]).map((value: any, index: number) => (
-                    <div
-                      key={index}
-                      className="w-32 h-12 flex items-center justify-center rounded bg-bg-primary border-2 border-border-primary text-text-primary font-bold"
-                    >
-                      {value}
-                    </div>
-                  ))}
-                  {(currentState.elements as any[])?.length === 0 && (
-                    <p className="text-text-secondary">Empty stack</p>
-                  )}
-                </div>
+              {selectedPlugin === 'stack' && currentState && (
+                <StackVisualizer 
+                  state={currentState} 
+                  highlight={currentState.highlights || []} 
+                  width={800} 
+                  height={400} 
+                />
               )}
 
-              {selectedPlugin === 'queue' && currentState?.elements && (
-                <div className="flex gap-2">
-                  {(currentState.elements as any[]).map((value: any, index: number) => (
-                    <div
-                      key={index}
-                      className="w-32 h-12 flex items-center justify-center rounded bg-bg-primary border-2 border-border-primary text-text-primary font-bold"
-                    >
-                      {value}
-                    </div>
-                  ))}
-                  {(currentState.elements as any[])?.length === 0 && (
-                    <p className="text-text-secondary">Empty queue</p>
-                  )}
-                </div>
+              {selectedPlugin === 'queue' && currentState && (
+                <QueueVisualizer 
+                  state={currentState} 
+                  highlight={currentState.highlights || []} 
+                  width={800} 
+                  height={400} 
+                />
               )}
             </div>
           </div>

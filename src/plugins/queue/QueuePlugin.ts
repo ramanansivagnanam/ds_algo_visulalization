@@ -1,4 +1,5 @@
 import { DataStructurePlugin, DSState, OperationDefinition, StepEvent } from '../../types';
+import { QueueVisualizer } from './visualizer';
 
 export interface QueueData { elements: number[]; front: number; rear: number; maxSize: number; }
 
@@ -83,8 +84,6 @@ const operations: OperationDefinition[] = [
     },
   },
 ];
-
-function QueueVisualizer() { return null; }
 
 export const queuePlugin: DataStructurePlugin = {
   id: 'queue',
