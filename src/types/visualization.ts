@@ -48,3 +48,12 @@ export interface ComplexityInfo {
   space: string;
   description: string;
 }
+
+export interface Step {
+  id: string;
+  state: any;
+  description?: string;
+  operation?: string;
+}
+
+export type VisualizationState<T = any> = any;
