@@ -1,4 +1,5 @@
 import { DataStructurePlugin, DSState, OperationDefinition, StepEvent } from '../../types';
+import { LinkedListVisualizer } from './visualizer';
 
 export interface LinkedListNode {
   value: number;
@@ -190,7 +191,7 @@ const operations: OperationDefinition[] = [
   },
 ];
 
-function LinkedListVisualizer() { return null; }
+function LinkedListVisualizerPlaceholder() { return null; }
 
 export const linkedListPlugin: DataStructurePlugin = {
   id: 'linkedlist',

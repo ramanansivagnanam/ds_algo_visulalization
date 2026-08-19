@@ -31,10 +31,10 @@ export interface SceneNode {
 export interface VisualizerProps {
   state: DSState;
   highlight: string[];
-  sceneGraph: SceneNode[];
+  sceneGraph?: SceneNode[];
   width: number;
   height: number;
-  speed: number;
+  speed?: number;
 }
 
 export interface PseudocodeBlock {
